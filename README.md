@@ -6,8 +6,6 @@ Your Spotify listening stats, wrapped. Top artists, tracks, genres, audio featur
 
 ![Boberwrapped dashboard](docs/dashboard.png)
 
-The current `docs/dashboard.png` is a **landing page** capture (dark home + “Log in with Spotify”). For a richer README, replace it with a shot of **`/dashboard`** after you log in (wider viewport, ~1200–1600px).
-
 ## Features
 
 - **Dashboard** – Top artists & tracks, top genres (from your tracks), time filters: **4 weeks**, **6 months**, **All time**
