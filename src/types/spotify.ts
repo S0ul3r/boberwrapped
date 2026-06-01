@@ -47,7 +47,8 @@ export interface SpotifyPlaylist {
   /** Track count - API may return as `tracks` or `items` */
   tracks?: { total: number };
   items?: { total: number };
-  owner: { display_name: string };
+  owner: { id: string; display_name: string };
+  collaborative?: boolean;
   external_urls: { spotify: string };
 }
 

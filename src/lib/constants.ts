@@ -29,3 +29,17 @@ export const DASHBOARD_LINK = "https://developer.spotify.com/dashboard";
 
 /** Spotify API limit for adding tracks to playlist in one request */
 export const PLAYLIST_ADD_BATCH_SIZE = 100;
+
+/** localStorage keys for track search index and lyrics cache */
+export const TRACK_INDEX_STORAGE_KEY = "boberwrapped_track_index";
+export const TRACK_INDEX_TIMESTAMP_KEY = "boberwrapped_track_index_at";
+export const LYRICS_CACHE_STORAGE_KEY = "boberwrapped_lyrics_cache";
+
+/** Track index cache TTL — 24 hours */
+export const TRACK_INDEX_TTL_MS = 24 * 60 * 60 * 1000;
+
+/** Lyrics cache TTL — 30 days */
+export const LYRICS_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** LRCLib / lyrics API User-Agent */
+export const LYRICS_USER_AGENT = "Boberwrapped/1.0 (https://github.com/boberwrapped)";

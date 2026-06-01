@@ -178,6 +178,59 @@ export async function getFollowedArtists(
   return data.artists?.items ?? [];
 }
 
+/** Paginate through all user playlists. */
+export async function getAllPlaylists(accessToken: string): Promise<SpotifyPlaylist[]> {
+  const all: SpotifyPlaylist[] = [];
+  let offset = 0;
+  let total = Infinity;
+  while (offset < total) {
+    const r = await getPlaylists(accessToken, 50, offset);
+    all.push(...r.items);
+    total = r.total;
+    offset += r.items.length;
+    if (r.items.length === 0) break;
+  }
+  return all;
+}
+
+/** Paginate through all saved (liked) tracks. */
+export async function getAllSavedTracks(
+  accessToken: string
+): Promise<{ track: SpotifyTrack; added_at: string }[]> {
+  const all: { track: SpotifyTrack; added_at: string }[] = [];
+  let offset = 0;
+  let total = Infinity;
+  while (offset < total) {
+    const r = await getSavedTracks(accessToken, 50, offset);
+    all.push(...r.items);
+    total = r.total;
+    offset += r.items.length;
+    if (r.items.length === 0) break;
+  }
+  return all;
+}
+
+/** Paginate through all tracks in a playlist. */
+export async function getAllPlaylistTracks(
+  accessToken: string,
+  playlistId: string
+): Promise<SpotifyTrack[]> {
+  const allTracks: SpotifyTrack[] = [];
+  let offset = 0;
+  let hasMore = true;
+  while (hasMore) {
+    const r = await getPlaylistTracks(accessToken, playlistId, 50, offset);
+    const tracks = r.items
+      .map((i) => i.track ?? i.item)
+      .filter((t): t is SpotifyTrack => t != null && typeof t === "object")
+      .filter((t) => t.id);
+    allTracks.push(...tracks);
+    offset += r.items.length;
+    hasMore = r.items.length === 50 && allTracks.length < r.total;
+  }
+  return allTracks;
+}
+
 export async function getPlaylists(
   accessToken: string,
   limit = 50,
@@ -208,9 +261,24 @@ export async function getPlaylist(
   return res.json();
 }
 
+type PlaylistItemEntry = {
+  track?: SpotifyTrack | null;
+  item?: SpotifyTrack | { type?: string; id?: string } | null;
+};
+
+function parsePlaylistTrackEntry(
+  entry: PlaylistItemEntry
+): SpotifyTrack | null {
+  const raw = entry.item ?? entry.track;
+  if (!raw || typeof raw !== "object") return null;
+  if ("type" in raw && raw.type !== "track") return null;
+  if (!("id" in raw) || !raw.id) return null;
+  return raw as SpotifyTrack;
+}
+
 /**
- * Get playlist tracks. Supports both /tracks (track) and /items (item) response formats.
- * Max 50 per request.
+ * Get playlist items (tracks). Uses GET /playlists/{id}/items (Feb 2026+).
+ * Legacy /tracks endpoint returns 403 for Development Mode apps.
  */
 export async function getPlaylistTracks(
   accessToken: string,
@@ -221,22 +289,28 @@ export async function getPlaylistTracks(
   const params = new URLSearchParams({
     limit: String(Math.min(limit, 50)),
     offset: String(offset),
+    additional_types: "track",
   });
   const res = await fetchWithAuth(
-    `${SPOTIFY_API_BASE}/playlists/${playlistId}/tracks?${params}`,
+    `${SPOTIFY_API_BASE}/playlists/${playlistId}/items?${params}`,
     accessToken
   );
   if (!res.ok) {
     const msg = await parseSpotifyError(res);
     if (res.status === 403) {
       throw new Error(
-        `${msg} Playlist tracks are only accessible for playlists you own or collaborate on.`
+        `${msg} Playlist items are only accessible for playlists you own or collaborate on.`
       );
     }
     throw new Error(msg);
   }
   const data = await res.json();
-  return { items: data.items ?? [], total: data.total ?? 0 };
+  const entries: PlaylistItemEntry[] = data.items ?? [];
+  const items = entries.map((entry) => {
+    const track = parsePlaylistTrackEntry(entry);
+    return track ? { item: track, track } : { item: null, track: null };
+  });
+  return { items, total: data.total ?? 0 };
 }
 
 export async function getArtist(
@@ -291,13 +365,13 @@ export async function getAudioFeatures(
 
 export async function createPlaylist(
   accessToken: string,
-  userId: string,
+  _userId: string,
   name: string,
   description?: string,
   public_ = true
 ): Promise<SpotifyPlaylist> {
   const res = await fetchWithAuth(
-    `${SPOTIFY_API_BASE}/users/${userId}/playlists`,
+    `${SPOTIFY_API_BASE}/me/playlists`,
     accessToken,
     {
       method: "POST",
@@ -319,7 +393,7 @@ export async function addTracksToPlaylist(
   uris: string[]
 ): Promise<{ snapshot_id: string }> {
   const res = await fetchWithAuth(
-    `${SPOTIFY_API_BASE}/playlists/${playlistId}/tracks`,
+    `${SPOTIFY_API_BASE}/playlists/${playlistId}/items`,
     accessToken,
     {
       method: "POST",
